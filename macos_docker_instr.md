@@ -35,6 +35,7 @@ find that XQuartz has opened port 6000. This is actually how your docker contain
 11. run
 ```
     contiker
+    sudo -s
     bash script.sh
     . /etc/profile.d/gradle.sh
     cd tools/cooja
