@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "my_sensor.h": "c",
+        "uip.h": "c",
+        "uip-ds6.h": "c",
+        "stdio.h": "c",
+        "uip-debug.h": "c",
+        "simple-udp.h": "c"
+    }
+}
