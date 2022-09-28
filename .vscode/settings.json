@@ -5,6 +5,8 @@
         "uip-ds6.h": "c",
         "stdio.h": "c",
         "uip-debug.h": "c",
-        "simple-udp.h": "c"
+        "simple-udp.h": "c",
+        "locale": "c",
+        "string": "c"
     }
 }

@@ -18,12 +18,28 @@ void receiver_callback(struct simple_udp_connection *c,
                        const uint8_t *data,
                        uint16_t datalen)
 {
-    printf("Received message from ");
-    uip_debug_ipaddr_print(sender_addr);
-    printf(" on port %d from port %d with length %d: %s\n",
-           receiver_port, sender_port, datalen, data);
+    // printf("Received message from ");
+    // uip_debug_ipaddr_print(sender_addr);
+    // printf(" on port %d from port %d with length %d: %s\n",
+    //       receiver_port, sender_port, datalen, data);
 }
 
+void print_addresses(void)
+{
+    int i;
+    uint8_t state;
+    printf("------ IPv6 addresses: ------\n");
+    for (i = 0; i < UIP_DS6_ADDR_NB; i++)
+    {
+        state = uip_ds6_if.addr_list[i].state;
+        if (uip_ds6_if.addr_list[i].isused &&
+            (state == ADDR_TENTATIVE || state == ADDR_PREFERRED))
+        {
+            uip_debug_ipaddr_print(&uip_ds6_if.addr_list[i].ipaddr);
+            printf("\n");
+        }
+    }
+}
 
 PROCESS_THREAD(echo_client_process, ev, data)
 {
@@ -31,7 +47,10 @@ PROCESS_THREAD(echo_client_process, ev, data)
     PROCESS_BEGIN();
     static struct simple_udp_connection server_connection;
     static struct etimer periodic_timer;
-    uip_ipaddr_t addr;
+
+    uip_ipaddr_t server_addr;
+    uip_ip6addr(&server_addr, 0xfd00, 0, 0, 0, 0, 0, 0, 0);
+
     simple_udp_register(&server_connection, UDP_CLIENT_PORT, NULL,
                         UDP_SERVER_PORT, receiver_callback);
     etimer_set(&periodic_timer, 3 * CLOCK_SECOND);
@@ -39,9 +58,9 @@ PROCESS_THREAD(echo_client_process, ev, data)
     while (1)
     {
         PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
-        uip_create_linklocal_allnodes_mcast(&addr);
+        // uip_create_linklocal_allnodes_mcast(&addr);
         simple_udp_sendto(&server_connection, buf, strlen(buf) + 1,
-                          &addr);
+                          &server_addr);
         etimer_reset(&periodic_timer);
     }
     PROCESS_END();
