@@ -7,6 +7,12 @@
         "uip-debug.h": "c",
         "simple-udp.h": "c",
         "locale": "c",
-        "string": "c"
+        "string": "c",
+        "contiki.h": "c",
+        "routing.h": "c",
+        "netstack.h": "c",
+        "__locale": "c",
+        "__string": "c",
+        "string_view": "c"
     }
 }

@@ -4,6 +4,9 @@
 #include "net/netstack.h"
 #include "net/ipv6/simple-udp.h"
 #include "node-id.h"
+#include "os/dev/leds.h"
+#include "my_sensor.h"
+
 
 #include "sys/log.h"
 #define LOG_MODULE "App"
@@ -11,6 +14,7 @@
 #define UDP_CLIENT_PORT 8765
 #define UDP_SERVER_PORT 5678
 static struct simple_udp_connection udp_conn;
+static struct sensor sensor;
 #define START_INTERVAL (5 * CLOCK_SECOND)
 
 PROCESS(udp_client_process, "UDP client");
@@ -35,7 +39,11 @@ PROCESS_THREAD(udp_client_process, ev, data)
     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
     if (NETSTACK_ROUTING.node_is_reachable() && NETSTACK_ROUTING.get_root_ipaddr(&dest_ipaddr))
     {
-      char buf[13] = "Hello World!";
+      static char buf[70];
+      sprintf(buf, "Temperature: %d, Humidity: %d, Battery Level: %d", sensor.temperature, sensor.humidity, sensor.battery_level);
+      leds_off(LEDS_ALL);
+      leds_single_on(get_led_color(&sensor));
+      init_sensor(&sensor);
       simple_udp_sendto(&udp_conn, buf, strlen(buf) + 1, &dest_ipaddr);
     }
     else
