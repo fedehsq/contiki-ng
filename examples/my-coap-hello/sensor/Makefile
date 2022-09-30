@@ -14,7 +14,6 @@ else
 MAKE_ROUTING ?= MAKE_ROUTING_NULLROUTING
 endif
 PROJECT_SOURCEFILES+=my_sensor.c
-PROJECT_SOURCEFILES+=g_sensors.c
 
 CONTIKI = ../../..
 include $(CONTIKI)/Makefile.include

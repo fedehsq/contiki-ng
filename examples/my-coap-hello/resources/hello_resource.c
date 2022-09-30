@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include "../g_buf.h"
 #include "coap-engine.h"
 
 static void res_get_handler(coap_message_t *request,
@@ -20,9 +21,8 @@ static void res_get_handler(coap_message_t *request,
                             uint16_t preferred_size,
                             int32_t *offset)
 {
-    char const *const message = "Hello World!";
-    int length = 12;
-    memcpy(buffer, message, length);
+    int length = strlen(g_buf);
+    memcpy(buffer, g_buf, length);
     coap_set_header_content_format(response, TEXT_PLAIN);
     coap_set_header_etag(response, (uint8_t *)&length, 1);
     coap_set_payload(response, buffer, length);

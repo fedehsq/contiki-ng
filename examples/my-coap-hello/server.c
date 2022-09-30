@@ -5,6 +5,7 @@
 #include "net/routing/routing.h"
 #include "net/netstack.h"
 #include "net/ipv6/simple-udp.h"
+#include "g_buf.h"
 #define LOG_MODULE "RPL BR"
 #define LOG_LEVEL LOG_LEVEL_INFO
 #define UDP_CLIENT_PORT 8765
@@ -21,7 +22,8 @@ static void udp_rx_callback(
     const uint8_t *data,
     uint16_t datalen)
 {
-    LOG_INFO("Received request %s ", data);
+    LOG_INFO("Received request %s\n from: ", data);
+    memcpy(g_buf, data, datalen);
     LOG_INFO_6ADDR(sender_addr);
     LOG_INFO_("\n");
 }
