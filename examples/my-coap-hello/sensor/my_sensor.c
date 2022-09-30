@@ -1,5 +1,5 @@
 #include "my_sensor.h"
-#include "lib/random.h"
+#include "random.h"
 #include "os/dev/leds.h"
 #include <stdio.h>
 static int MAX_TEMPERATURE = 100;
@@ -38,7 +38,6 @@ int get_led_color(struct sensor *sensor)
 }
 void init_sensor(struct sensor *sensor)
 {
-    random_init((unsigned short)clock_seconds());
     sensor->temperature = random_rand() % MAX_TEMPERATURE;
     sensor->humidity = random_rand() % MAX_HUMIDITY;
     sensor->battery_level = random_rand() % MAX_BATTERY_LEVEL;
