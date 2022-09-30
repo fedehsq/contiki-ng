@@ -21,7 +21,6 @@ MODULES += $(CONTIKI_NG_APP_LAYER_DIR)/coap
 # Include webserver module
 MODULES_REL += webserver
 MODULES_REL += $(CONTIKI)/examples/my-coap-hello/resources
-PROJECT_SOURCEFILES+=my_sensor.c
 
 # Include optional target-specific module
 include $(CONTIKI)/Makefile.identify-target

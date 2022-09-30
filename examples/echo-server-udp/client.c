@@ -27,21 +27,15 @@ PROCESS_THREAD(udp_client_process, ev, data)
 {
   static struct etimer periodic_timer;
   uip_ipaddr_t dest_ipaddr;
+  uip_ip6addr(&dest_ipaddr, 0xfe80, 0, 0, 0, 0x0201, 0x0001, 0x0001, 0x0001);
   PROCESS_BEGIN();
   simple_udp_register(&udp_conn, UDP_CLIENT_PORT, NULL, UDP_SERVER_PORT, udp_rx_callback);
   etimer_set(&periodic_timer, START_INTERVAL);
   while (1)
   {
     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
-    if (NETSTACK_ROUTING.node_is_reachable() && NETSTACK_ROUTING.get_root_ipaddr(&dest_ipaddr))
-    {
-      char buf[13] = "Hello World!";
-      simple_udp_sendto(&udp_conn, buf, strlen(buf) + 1, &dest_ipaddr);
-    }
-    else
-    {
-      LOG_INFO("Not reachable yet\n");
-    }
+    char buf[13] = "Hello World!";
+    simple_udp_sendto(&udp_conn, buf, strlen(buf) + 1, &dest_ipaddr);
     etimer_reset(&periodic_timer);
   }
   PROCESS_END();

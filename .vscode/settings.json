@@ -13,6 +13,7 @@
         "netstack.h": "c",
         "__locale": "c",
         "__string": "c",
-        "string_view": "c"
+        "string_view": "c",
+        "g_sensors.h": "c"
     }
 }
