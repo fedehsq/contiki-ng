@@ -1,6 +1,6 @@
 CONTIKI_PROJECT = coap-hello
 all: $(CONTIKI_PROJECT)
-CONTIKI = ../..
+CONTIKI = ../../..
 
 MAKE_NET_IPV6 = 1
 MAKE_NET ?= MAKE_NET_IPV6
@@ -20,7 +20,7 @@ MODULES += $(CONTIKI_NG_SERVICES_DIR)/rpl-border-router
 MODULES += $(CONTIKI_NG_APP_LAYER_DIR)/coap
 # Include webserver module
 MODULES_REL += webserver
-MODULES_REL += $(CONTIKI)/examples/my-coap-hello/resources
+MODULES_REL += $(CONTIKI)/examples/mqtt-project/coap-server/resources
 PROJECT_SOURCEFILES+=g_buf.c
 
 # Include optional target-specific module

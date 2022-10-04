@@ -45,7 +45,6 @@
 #include "mqtt-publisher.h"
 #include "node-id.h"
 #include "my_sensor.h"
-#include "../g_buf.h"
 #include <string.h>
 #include <strings.h>
 #include <stdarg.h>
@@ -532,11 +531,6 @@ PROCESS_THREAD(mqtt_client_process, ev, data)
   uip_icmp6_echo_reply_callback_add(&echo_reply_notification,
                                     echo_reply_handler);
   etimer_set(&echo_request_timer, conf.def_rt_ping_interval);
-
-  g_buf_sensor_one = (char *)calloc(64, sizeof(char));
-  g_buf_sensor_two = (char *)calloc(64, sizeof(char));
-  g_buf_sensor_three = (char *)calloc(64, sizeof(char));
-  snprintf(g_buf_sensor_one, 64, "%s", "sensor_one");
 
   /* Main loop */
   while (1)

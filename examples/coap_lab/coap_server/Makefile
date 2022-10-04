@@ -1,6 +1,6 @@
 CONTIKI_PROJECT = coap-server
 all: $(CONTIKI_PROJECT)
-CONTIKI = ../..
+CONTIKI = ../../..
 
 MODULES_REL += ./resources
 
