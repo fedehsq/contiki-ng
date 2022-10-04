@@ -18,6 +18,9 @@
         "g_buf.h": "c",
         "stdlib.h": "c",
         "string.h": "c",
-        "coap-engine.h": "c"
+        "coap-engine.h": "c",
+        "algorithm": "c",
+        "complex": "c",
+        "new": "c"
     }
 }

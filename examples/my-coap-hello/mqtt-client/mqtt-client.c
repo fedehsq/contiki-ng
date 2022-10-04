@@ -45,83 +45,26 @@
 #include "mqtt-client.h"
 #include "node-id.h"
 #include "my_sensor.h"
+#include "../g_buf.h"
 #include <string.h>
 #include <strings.h>
 #include <stdarg.h>
 /*---------------------------------------------------------------------------*/
 #define LOG_MODULE "mqtt-client"
-#ifdef MQTT_CLIENT_CONF_LOG_LEVEL
-#define LOG_LEVEL MQTT_CLIENT_CONF_LOG_LEVEL
-#else
 #define LOG_LEVEL LOG_LEVEL_DBG
-#endif
-/*---------------------------------------------------------------------------*/
-/* Controls whether the example will work in IBM Watson IoT platform mode */
-#ifdef MQTT_CLIENT_CONF_WITH_IBM_WATSON
-#define MQTT_CLIENT_WITH_IBM_WATSON MQTT_CLIENT_CONF_WITH_IBM_WATSON
-#else
-#define MQTT_CLIENT_WITH_IBM_WATSON 0
-#endif
-/*---------------------------------------------------------------------------*/
-/* MQTT broker address. Ignored in Watson mode */
-#ifdef MQTT_CLIENT_CONF_BROKER_IP_ADDR
-#define MQTT_CLIENT_BROKER_IP_ADDR MQTT_CLIENT_CONF_BROKER_IP_ADDR
-#else
 #define MQTT_CLIENT_BROKER_IP_ADDR "fd00::1"
-#endif
-/*---------------------------------------------------------------------------*/
-/*
- * MQTT Org ID.
- *
- * If it equals "quickstart", the client will connect without authentication.
- * In all other cases, the client will connect with authentication mode.
- *
- * In Watson mode, the username will be "use-token-auth". In non-Watson mode
- * the username will be MQTT_CLIENT_USERNAME.
- *
- * In all cases, the password will be MQTT_CLIENT_AUTH_TOKEN.
- */
-#ifdef MQTT_CLIENT_CONF_ORG_ID
+
 #define MQTT_CLIENT_ORG_ID MQTT_CLIENT_CONF_ORG_ID
-#else
-#define MQTT_CLIENT_ORG_ID "quickstart"
-#endif
+
 /*---------------------------------------------------------------------------*/
 /* MQTT token */
-#ifdef MQTT_CLIENT_CONF_AUTH_TOKEN
 #define MQTT_CLIENT_AUTH_TOKEN MQTT_CLIENT_CONF_AUTH_TOKEN
-#else
-#define MQTT_CLIENT_AUTH_TOKEN "AUTHTOKEN"
-#endif
-/*---------------------------------------------------------------------------*/
-#if MQTT_CLIENT_WITH_IBM_WATSON
-/* With IBM Watson support */
-static const char *broker_ip = "0064:ff9b:0000:0000:0000:0000:b8ac:7cbd";
-#define MQTT_CLIENT_USERNAME "use-token-auth"
 
-#else /* MQTT_CLIENT_WITH_IBM_WATSON */
-/* Without IBM Watson support. To be used with other brokers, e.g. Mosquitto */
+/* To be used with other brokers, e.g. Mosquitto */
 static const char *broker_ip = MQTT_CLIENT_BROKER_IP_ADDR;
 
-#ifdef MQTT_CLIENT_CONF_USERNAME
 #define MQTT_CLIENT_USERNAME MQTT_CLIENT_CONF_USERNAME
-#else
-#define MQTT_CLIENT_USERNAME "use-token-auth"
-#endif
 
-#endif /* MQTT_CLIENT_WITH_IBM_WATSON */
-/*---------------------------------------------------------------------------*/
-#ifdef MQTT_CLIENT_CONF_STATUS_LED
-#define MQTT_CLIENT_STATUS_LED MQTT_CLIENT_CONF_STATUS_LED
-#else
-#define MQTT_CLIENT_STATUS_LED LEDS_GREEN
-#endif
-/*---------------------------------------------------------------------------*/
-#ifdef MQTT_CLIENT_CONF_WITH_EXTENSIONS
-#define MQTT_CLIENT_WITH_EXTENSIONS MQTT_CLIENT_CONF_WITH_EXTENSIONS
-#else
-#define MQTT_CLIENT_WITH_EXTENSIONS 0
-#endif
 /*---------------------------------------------------------------------------*/
 /*
  * A timeout used when waiting for something to happen (e.g. to connect or to
@@ -233,11 +176,8 @@ static char sub_topic[BUFFER_SIZE];
 static struct mqtt_connection conn;
 static char app_buffer[APP_BUFFER_SIZE];
 /*---------------------------------------------------------------------------*/
-#define QUICKSTART "quickstart"
-/*---------------------------------------------------------------------------*/
 static struct mqtt_message *msg_ptr = 0;
 static struct etimer publish_periodic_timer;
-static struct ctimer ct;
 static char *buf_ptr;
 static uint16_t seq_nr_value = 0;
 /*---------------------------------------------------------------------------*/
@@ -279,12 +219,7 @@ echo_reply_handler(uip_ipaddr_t *source, uint8_t ttl, uint8_t *data,
     def_rt_rssi = (int16_t)uipbuf_get_attr(UIPBUF_ATTR_RSSI);
   }
 }
-/*---------------------------------------------------------------------------*/
-static void
-publish_led_off(void *d)
-{
-  leds_off(MQTT_CLIENT_STATUS_LED);
-}
+
 /*---------------------------------------------------------------------------*/
 static void
 pub_handler(const char *topic, uint16_t topic_len, const uint8_t *chunk,
@@ -575,25 +510,6 @@ state_machine(void)
     mqtt_register(&conn, &mqtt_client_process, client_id, mqtt_event,
                   MAX_TCP_SEGMENT_SIZE);
 
-    /*
-     * If we are not using the quickstart service (thus we are an IBM
-     * registered device), we need to provide user name and password
-     */
-    if (strncasecmp(conf.org_id, QUICKSTART, strlen(conf.org_id)) != 0)
-    {
-      if (strlen(conf.auth_token) == 0)
-      {
-        LOG_ERR("User name set, but empty auth token\n");
-        state = STATE_ERROR;
-        break;
-      }
-      else
-      {
-        mqtt_set_username_password(&conn, MQTT_CLIENT_USERNAME,
-                                   conf.auth_token);
-      }
-    }
-
     /* _register() will set auto_reconnect. We don't want that. */
     conn.auto_reconnect = 0;
     connect_attempt = 1;
@@ -611,18 +527,11 @@ state_machine(void)
     etimer_set(&publish_periodic_timer, NET_CONNECT_PERIODIC);
     break;
   case STATE_CONNECTING:
-    leds_on(MQTT_CLIENT_STATUS_LED);
-    ctimer_set(&ct, CONNECTING_LED_DURATION, publish_led_off, NULL);
     /* Not connected yet. Wait */
     LOG_DBG("Connecting (%u)\n", connect_attempt);
     break;
   case STATE_CONNECTED:
-    /* Don't subscribe unless we are a registered device */
-    if (strncasecmp(conf.org_id, QUICKSTART, strlen(conf.org_id)) == 0)
-    {
-      LOG_DBG("Using 'quickstart': Skipping subscribe\n");
-      state = STATE_PUBLISHING;
-    }
+
     /* Continue */
   case STATE_PUBLISHING:
     /* If the timer expired, the connection is stable. */
@@ -645,8 +554,6 @@ state_machine(void)
       }
       else
       {
-        leds_on(MQTT_CLIENT_STATUS_LED);
-        ctimer_set(&ct, PUBLISH_LED_ON_DURATION, publish_led_off, NULL);
         LOG_DBG("Publishing\n");
         publish();
       }
@@ -702,7 +609,6 @@ state_machine(void)
     return;
   case STATE_ERROR:
   default:
-    leds_on(MQTT_CLIENT_STATUS_LED);
     /*
      * 'default' should never happen.
      *
@@ -752,21 +658,16 @@ PROCESS_THREAD(mqtt_client_process, ev, data)
                                     echo_reply_handler);
   etimer_set(&echo_request_timer, conf.def_rt_ping_interval);
 
+  g_buf_sensor_one = (char *)calloc(64, sizeof(char));
+  g_buf_sensor_two = (char *)calloc(64, sizeof(char));
+  g_buf_sensor_three = (char *)calloc(64, sizeof(char));
+  snprintf(g_buf_sensor_one, 64, "%s", "sensor_one");
+
   /* Main loop */
   while (1)
   {
 
     PROCESS_YIELD();
-
-    if (ev == button_hal_release_event &&
-        ((button_hal_button_t *)data)->unique_id == BUTTON_HAL_ID_BUTTON_ZERO)
-    {
-      if (state == STATE_ERROR)
-      {
-        connect_attempt = 1;
-        state = STATE_REGISTERED;
-      }
-    }
 
     if ((ev == PROCESS_EVENT_TIMER && data == &publish_periodic_timer) ||
         ev == PROCESS_EVENT_POLL ||
@@ -774,12 +675,6 @@ PROCESS_THREAD(mqtt_client_process, ev, data)
          ((button_hal_button_t *)data)->unique_id == BUTTON_HAL_ID_BUTTON_ZERO))
     {
       state_machine();
-    }
-
-    if (ev == PROCESS_EVENT_TIMER && data == &echo_request_timer)
-    {
-      ping_parent();
-      etimer_set(&echo_request_timer, conf.def_rt_ping_interval);
     }
   }
 
