@@ -53,7 +53,7 @@
  * through MQTT_CLIENT_CONF_AUTH_TOKEN.
  */
 #ifndef MQTT_CLIENT_CONF_ORG_ID
-#define MQTT_CLIENT_CONF_ORG_ID "quickstart"
+#define MQTT_CLIENT_CONF_ORG_ID "a"
 #endif
 
 /*
