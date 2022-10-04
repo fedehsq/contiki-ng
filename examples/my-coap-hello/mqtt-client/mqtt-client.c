@@ -130,6 +130,7 @@ static uint8_t state;
 /* Payload length of ICMPv6 echo requests used to measure RSSI with def rt */
 #define ECHO_REQ_PAYLOAD_LEN 20
 /*---------------------------------------------------------------------------*/
+#define COAP_SERVER_ID 2
 PROCESS_NAME(mqtt_client_process);
 AUTOSTART_PROCESSES(&mqtt_client_process);
 
@@ -179,7 +180,6 @@ static char app_buffer[APP_BUFFER_SIZE];
 static struct mqtt_message *msg_ptr = 0;
 static struct etimer publish_periodic_timer;
 static char *buf_ptr;
-static uint16_t seq_nr_value = 0;
 /*---------------------------------------------------------------------------*/
 /* Parent RSSI functionality */
 static struct uip_icmp6_echo_reply_notification echo_reply_notification;
@@ -188,13 +188,8 @@ static int def_rt_rssi = 0;
 /*---------------------------------------------------------------------------*/
 static mqtt_client_config_t conf;
 /*---------------------------------------------------------------------------*/
-#if MQTT_CLIENT_WITH_EXTENSIONS
-extern const mqtt_client_extension_t *mqtt_client_extensions[];
-extern const uint8_t mqtt_client_extension_count;
-#else
 static const mqtt_client_extension_t *mqtt_client_extensions[] = {NULL};
 static const uint8_t mqtt_client_extension_count = 0;
-#endif
 /*---------------------------------------------------------------------------*/
 PROCESS(mqtt_client_process, "MQTT Client");
 /*---------------------------------------------------------------------------*/
@@ -309,14 +304,6 @@ mqtt_event(struct mqtt_connection *m, mqtt_event_t event, void *data)
     LOG_DBG("Publishing complete.\n");
     break;
   }
-#if MQTT_5_AUTH_EN
-  case MQTT_EVENT_AUTH:
-  {
-    LOG_DBG("Continuing auth.\n");
-    struct mqtt_prop_auth_event *auth_event = (struct mqtt_prop_auth_event *)data;
-    break;
-  }
-#endif
   default:
     LOG_DBG("Application got a unhandled MQTT event: %i\n", event);
     break;
@@ -335,7 +322,6 @@ construct_pub_topic(void)
     LOG_INFO("Pub Topic: %d, Buffer %d\n", len, BUFFER_SIZE);
     return 0;
   }
-
 
   return 1;
 }
@@ -399,9 +385,6 @@ update_config(void)
     return;
   }
 
-  /* Reset the counter */
-  seq_nr_value = 0;
-
   state = STATE_INIT;
 
   /*
@@ -442,7 +425,14 @@ subscribe(void)
 {
   /* Publish MQTT topic in IBM quickstart format */
   mqtt_status_t status;
-  status = mqtt_subscribe(&conn, NULL, sub_topic, MQTT_QOS_LEVEL_0);
+  if (node_id == COAP_SERVER_ID)
+  {
+    status = mqtt_subscribe(&conn, NULL, pub_topic, MQTT_QOS_LEVEL_0);
+  }
+  //  else
+  // {
+  //   status = mqtt_subscribe(&conn, NULL, sub_topic, MQTT_QOS_LEVEL_0);
+  // }
 
   LOG_DBG("Subscribing!\n");
   if (status == MQTT_STATUS_OUT_QUEUE_FULL)
@@ -464,13 +454,13 @@ publish(void)
 
   /* Publish MQTT topic in json format */
   snprintf(buf_ptr, remaining,
-                 "{"
-                 "\"d\":{"
-                 "\"Node id\":%d,"
-                 "\"Temperature\":%d,"
-                 "\"Humidity\":%d,"
-                 "\"Battery Level\":%d}}",
-                 node_id, sensor.temperature, sensor.humidity, sensor.battery_level);
+           "{"
+           "\"d\":{"
+           "\"Node id\":%d,"
+           "\"Temperature\":%d,"
+           "\"Humidity\":%d,"
+           "\"Battery Level\":%d}}",
+           node_id, sensor.temperature, sensor.humidity, sensor.battery_level);
   mqtt_publish(&conn, NULL, pub_topic, (uint8_t *)app_buffer,
                strlen(app_buffer), MQTT_QOS_LEVEL_0, MQTT_RETAIN_OFF);
   LOG_DBG("Publish!\n");
@@ -552,7 +542,7 @@ state_machine(void)
         subscribe();
         state = STATE_PUBLISHING;
       }
-      else
+      else if (node_id != COAP_SERVER_ID)
       {
         LOG_DBG("Publishing\n");
         publish();
