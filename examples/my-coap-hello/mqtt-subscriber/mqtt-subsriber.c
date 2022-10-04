@@ -42,9 +42,8 @@
 #include "dev/button-hal.h"
 #include "dev/leds.h"
 #include "os/sys/log.h"
-#include "mqtt-client.h"
+#include "mqtt-subscriber.h"
 #include "node-id.h"
-#include "my_sensor.h"
 #include "../g_buf.h"
 #include <string.h>
 #include <strings.h>
@@ -134,8 +133,6 @@ static uint8_t state;
 PROCESS_NAME(mqtt_client_process);
 AUTOSTART_PROCESSES(&mqtt_client_process);
 
-static struct sensor sensor;
-
 /*---------------------------------------------------------------------------*/
 /**
  * \brief Data structure declaration for the MQTT client configuration
@@ -166,20 +163,11 @@ typedef struct mqtt_client_config
  */
 #define BUFFER_SIZE 64
 static char client_id[BUFFER_SIZE];
-static char pub_topic[BUFFER_SIZE];
 static char sub_topic[BUFFER_SIZE];
-/*---------------------------------------------------------------------------*/
-/*
- * The main MQTT buffers.
- * We will need to increase if we start publishing more data.
- */
-#define APP_BUFFER_SIZE 512
 static struct mqtt_connection conn;
-static char app_buffer[APP_BUFFER_SIZE];
 /*---------------------------------------------------------------------------*/
 static struct mqtt_message *msg_ptr = 0;
 static struct etimer publish_periodic_timer;
-static char *buf_ptr;
 /*---------------------------------------------------------------------------*/
 /* Parent RSSI functionality */
 static struct uip_icmp6_echo_reply_notification echo_reply_notification;
@@ -188,10 +176,7 @@ static int def_rt_rssi = 0;
 /*---------------------------------------------------------------------------*/
 static mqtt_client_config_t conf;
 /*---------------------------------------------------------------------------*/
-static const mqtt_client_extension_t *mqtt_client_extensions[] = {NULL};
-static const uint8_t mqtt_client_extension_count = 0;
-/*---------------------------------------------------------------------------*/
-PROCESS(mqtt_client_process, "MQTT Client");
+PROCESS(mqtt_client_process, "MQTT Subscriber Client");
 /*---------------------------------------------------------------------------*/
 static bool
 have_connectivity(void)
@@ -311,26 +296,10 @@ mqtt_event(struct mqtt_connection *m, mqtt_event_t event, void *data)
 }
 /*---------------------------------------------------------------------------*/
 static int
-construct_pub_topic(void)
-{
-  int len = snprintf(pub_topic, BUFFER_SIZE, "iot-2/evt/%s/fmt/json",
-                     conf.event_type_id);
-
-  /* len < 0: Error. Len >= BUFFER_SIZE: Buffer too small */
-  if (len < 0 || len >= BUFFER_SIZE)
-  {
-    LOG_INFO("Pub Topic: %d, Buffer %d\n", len, BUFFER_SIZE);
-    return 0;
-  }
-
-  return 1;
-}
-/*---------------------------------------------------------------------------*/
-static int
 construct_sub_topic(void)
 {
-  int len = snprintf(sub_topic, BUFFER_SIZE, "iot-2/cmd/%s/fmt/json",
-                     conf.cmd_type);
+  int len = snprintf(sub_topic, BUFFER_SIZE, "iot-2/evt/%s/fmt/json",
+                     conf.event_type_id);
 
   /* len < 0: Error. Len >= BUFFER_SIZE: Buffer too small */
   if (len < 0 || len >= BUFFER_SIZE)
@@ -378,13 +347,6 @@ update_config(void)
     return;
   }
 
-  if (construct_pub_topic() == 0)
-  {
-    /* Fatal error. Topic larger than the buffer */
-    state = STATE_CONFIG_ERROR;
-    return;
-  }
-
   state = STATE_INIT;
 
   /*
@@ -425,45 +387,12 @@ subscribe(void)
 {
   /* Publish MQTT topic in IBM quickstart format */
   mqtt_status_t status;
-  if (node_id == COAP_SERVER_ID)
-  {
-    status = mqtt_subscribe(&conn, NULL, pub_topic, MQTT_QOS_LEVEL_0);
-  }
-  //  else
-  // {
-  //   status = mqtt_subscribe(&conn, NULL, sub_topic, MQTT_QOS_LEVEL_0);
-  // }
-
+  status = mqtt_subscribe(&conn, NULL, sub_topic, MQTT_QOS_LEVEL_0);
   LOG_DBG("Subscribing!\n");
   if (status == MQTT_STATUS_OUT_QUEUE_FULL)
   {
     LOG_ERR("Tried to subscribe but command queue was full!\n");
   }
-}
-/*---------------------------------------------------------------------------*/
-static void
-publish(void)
-{
-  int remaining = APP_BUFFER_SIZE;
-  buf_ptr = app_buffer;
-
-  /* Change led color */
-  leds_off(LEDS_ALL);
-  leds_single_on(get_led_color(&sensor));
-  init_sensor(&sensor);
-
-  /* Publish MQTT topic in json format */
-  snprintf(buf_ptr, remaining,
-           "{"
-           "\"d\":{"
-           "\"Node id\":%d,"
-           "\"Temperature\":%d,"
-           "\"Humidity\":%d,"
-           "\"Battery Level\":%d}}",
-           node_id, sensor.temperature, sensor.humidity, sensor.battery_level);
-  mqtt_publish(&conn, NULL, pub_topic, (uint8_t *)app_buffer,
-               strlen(app_buffer), MQTT_QOS_LEVEL_0, MQTT_RETAIN_OFF);
-  LOG_DBG("Publish!\n");
 }
 /*---------------------------------------------------------------------------*/
 static void
@@ -542,28 +471,9 @@ state_machine(void)
         subscribe();
         state = STATE_PUBLISHING;
       }
-      else if (node_id != COAP_SERVER_ID)
-      {
-        LOG_DBG("Publishing\n");
-        publish();
-      }
       etimer_set(&publish_periodic_timer, conf.pub_interval);
       /* Return here so we don't end up rescheduling the timer */
       return;
-    }
-    else
-    {
-      /*
-       * Our publish timer fired, but some MQTT packet is already in flight
-       * (either not sent at all, or sent but not fully ACKd).
-       *
-       * This can mean that we have lost connectivity to our broker or that
-       * simply there is some network delay. In both cases, we refuse to
-       * trigger a new message and we wait for TCP to either ACK the entire
-       * packet after retries, or to timeout and notify us.
-       */
-      LOG_DBG("Publishing... (MQTT state=%d, q=%u)\n", conn.state,
-              conn.out_queue_full);
     }
     break;
   case STATE_DISCONNECTED:
@@ -612,34 +522,19 @@ state_machine(void)
   /* If we didn't return so far, reschedule ourselves */
   etimer_set(&publish_periodic_timer, STATE_MACHINE_PERIODIC);
 }
-/*---------------------------------------------------------------------------*/
-static void
-init_extensions(void)
-{
-  int i;
 
-  for (i = 0; i < mqtt_client_extension_count; i++)
-  {
-    if (mqtt_client_extensions[i]->init)
-    {
-      mqtt_client_extensions[i]->init();
-    }
-  }
-}
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(mqtt_client_process, ev, data)
 {
 
   PROCESS_BEGIN();
 
-  LOG_DBG("MQTT Client Process\n");
+  LOG_DBG("MQTT Client Subscriber Process\n");
 
   if (init_config() != 1)
   {
     PROCESS_EXIT();
   }
-
-  init_extensions();
 
   update_config();
 
