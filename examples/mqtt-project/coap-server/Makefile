@@ -21,7 +21,7 @@ MODULES += $(CONTIKI_NG_APP_LAYER_DIR)/coap
 # Include webserver module
 MODULES_REL += webserver
 MODULES_REL += $(CONTIKI)/examples/mqtt-project/coap-server/resources
-PROJECT_SOURCEFILES+=g_buf.c
+PROJECT_SOURCEFILES+=../g_buf.c
 
 # Include optional target-specific module
 include $(CONTIKI)/Makefile.identify-target

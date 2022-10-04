@@ -21,6 +21,7 @@
         "coap-engine.h": "c",
         "algorithm": "c",
         "complex": "c",
-        "new": "c"
+        "new": "c",
+        "ios": "c"
     }
 }
