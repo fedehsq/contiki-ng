@@ -38,6 +38,22 @@ find that XQuartz has opened port 6000. This is actually how your docker contain
     sudo -s
     bash script.sh
     . /etc/profile.d/gradle.sh
+    bash mosquitto-v1.5.sh
     cd tools/cooja
     gradle run
+```
+12. 
+```
+    mosquitto -v
+    cd tools/cooja
+    gradle run (ant run)
+    load simulation file MQTT.csc
+    add node 1 as socket server
+    start simulation
+```
+12. 
+```
+    docker exec -it <container-id> /bin/bash
+    cd examples/mqtt-project/coap-server
+    make TARGET=cooja connect-router-cooja
 ```
