@@ -356,7 +356,7 @@ publish(void)
   snprintf(buf_ptr, remaining,
            "{"
            "\"d\":{"
-           "\"Node id\":%d,"
+           "\"Sensor id\":%d,"
            "\"Temperature\":%d,"
            "\"Humidity\":%d,"
            "\"Battery Level\":%d}}",
